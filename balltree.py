@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Callable
 from math import sqrt
+from collections import deque
 import platform
 USE_NP_ARRAYS = False
 
@@ -88,48 +89,6 @@ class BallNode:
             if not self.left:
                 return self.pivot
 
-    def range_query(self, p: tuple[float, ...],
-                    epsilon: float,
-                    distance_function: Callable[[tuple[float, float], tuple[float, float]], float]):
-        r = []
-        distance = distance_function(p, self.pivot)
-        if distance <= epsilon:
-            r.append(self.pivot)
-        # all points under the tree are inside the search area
-        if distance + self.radius <= epsilon:
-            # This could be done in a single call to extend
-            # if we were willing to accept also receiving the
-            # pivot again
-            if self.points is not None:
-                r.extend(self.points)
-            else:
-                if self.left:
-                    r.extend(self.left)
-                if self.right:
-                    r.extend(self.right)
-        # If the covered volume could contain points that are within the appropriate
-        # distance then we must also explore it.
-        elif distance - self.radius <= epsilon:
-            if self.points is not None:
-                r.extend(
-                    filter(
-                        lambda x: distance_function(p, x) <= epsilon,
-                        self.points))
-            else:
-                if self.left:
-                    r.extend(self.left.range_query(
-                        p, epsilon, distance_function))
-                if self.right:
-                    r.extend(self.right.range_query(
-                        p, epsilon, distance_function))
-        else:
-            dprint(
-                f"excluding node with distance {distance} and radius {self.radius}")
-            dprint(
-                f"Nearest point would be {distance-self.radius} versus {epsilon}")
-        return r
-
-   # def nearest_neighbor(self, p: tuple[float, ...])
 
     def draw(self, image, depth=0):
         pvx, pvy = int(self.pivot[0]), int(self.pivot[1])
@@ -155,12 +114,46 @@ class BallTree():
         self.distance_function = distance_function
         self.root = BallNode(points, distance_function)
 
-    def range_query(self, point: tuple[float, ...], epsilon: float):
-        return self.root.range_query(point, epsilon, self.distance_function)
 
     def __iter__(self):
         for i in self.root:
             yield i
+
+    def range_query(self, p: tuple[float, ...],
+                     epsilon: float):
+        nodes_to_explore = deque()
+        nodes_to_explore.append(self.root)
+        result = []
+        distance_function = self.distance_function
+        while len(nodes_to_explore) > 0:
+            current = nodes_to_explore.popleft()
+            distance = distance_function(p, current.pivot)
+            if distance <= epsilon:
+                result.append(current.pivot)
+            if distance + current.radius <= epsilon:
+                if current.points is not None:
+                    result.extend(current.points)
+                else:
+                    if current.left:
+                        result.extend(current.left)
+                    if current.right:
+                        result.extend(current.right)
+            elif distance - current.radius <= epsilon:
+                if current.points is not None:
+                    result.extend(
+                        filter(
+                            lambda x: distance_function(p, x) <= epsilon,
+                            current.points))
+                else:
+                    if current.left:
+                        nodes_to_explore.append(current.left)
+                    if current.right:
+                        nodes_to_explore.append(current.right)
+            else:
+                # Excluded
+                pass
+        return result
+
 
     # TODO The range query here might be better turned into a looping
     # structure, the recursion cannot be optimized out and thus will contribute

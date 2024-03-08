@@ -43,8 +43,8 @@ if __name__ == "__main__":
     parser.add_argument('--print-progress', dest='print_progress',
                         action='store_const',
                         const=True, default=False)
-    parser.add_argument("-o", dest="output")
-    parser.add_argument("--radius", dest='radius', type='float', default=20.0)
+    parser.add_argument("-o", dest="output", default="output.png")
+    parser.add_argument("--radius", dest='radius', type=float, default=20.0)
     args = parser.parse_args()
     ACCELERATION = args.acceleration
     pyball.BALLNODE_MAX_POINTS = args.balltree_width
@@ -240,7 +240,7 @@ if __name__ == "__main__":
         if RANDOMIZE_POINT_ORDER:
             points.sort(key=lambda _: random.random())
 
-        labels, borders, centrality = dbscan(points, distance, 8, RADIUS)
+        labels, borders, centrality = dbscan(points, distance, 10, RADIUS)
 
         image = PIL.Image.new("RGB", (width+1, height+1), color=(255, 255, 255))
 
